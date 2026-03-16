@@ -93,10 +93,14 @@ Plain fully-connected network. Sees the entire image as a flat vector.
 ```
 Input (3, 32, 32)
     → Flatten → (3072,)
-    → Linear(3072 → 512) + ReLU
-    → Linear(512 → 256)  + ReLU
-    → Linear(256 → 10)
+    → Linear(3072 → 512) + BatchNorm1d(512) + ReLU
+    → Linear(512 → 256)  + BatchNorm1d(256) + ReLU
+    → Linear(256 → 128)  + BatchNorm1d(128) + ReLU   # 3rd hidden layer
+    → Linear(128 → 10)
 ```
+
+- **BatchNorm1d** after each linear normalizes activations between layers, reducing internal covariate shift and stabilizing training.
+- Extra hidden layer `256→128` gives the network more capacity before the final projection.
 
 Sensitive to patch shuffling because pixel positions are encoded implicitly by their index in the flattened vector.
 
@@ -110,14 +114,18 @@ Invariant to **16×16** patch shuffling. Splits image into 4 patches, encodes ea
 Input (B, 3, 32, 32)
     → extract_patches(16) → (B, 4, 3, 16, 16)
     → reshape            → (B*4, 768)         # treat each patch as its own input
-    → Linear(768 → 256) + ReLU
-    → Linear(256 → 128) + ReLU
-    → Linear(128 → 64)  + ReLU               # each patch → 64-d vector
-    → reshape + mean(dim=1) → (B, 64)        # mean-pool across 4 patches
-    → Linear(64 → 10)
+    → Linear(768 → 256) + BatchNorm1d(256) + ReLU
+    → Linear(256 → 128) + BatchNorm1d(128) + ReLU
+    → Linear(128 → 64)  + BatchNorm1d(64)  + ReLU   # each patch → 64-d vector
+    → reshape + mean(dim=1) → (B, 64)               # mean-pool across 4 patches
+    → Linear(64 → 128) + ReLU                        # deeper classifier head
+    → Linear(128 → 10)
 ```
 
 `patch_dim = 3 × 16 × 16 = 768`
+
+- **BatchNorm1d** operates on `(B*4, features)` — the 4x patch multiplier just increases the effective batch size, so stats are well-estimated.
+- Classifier is now 2-layer (`64→128→10`) instead of a single linear.
 
 Why invariant to patch-16 but not patch-8: The FC encoder flattens the full 16×16 patch — pixel positions within the patch are encoded by index. Shuffling 8×8 sub-blocks within a 16×16 patch changes those indices → output changes.
 
@@ -131,14 +139,18 @@ Invariant to **8×8** patch shuffling (and automatically to 16×16 as well). Sam
 Input (B, 3, 32, 32)
     → extract_patches(8) → (B, 16, 3, 8, 8)
     → reshape            → (B*16, 192)
-    → Linear(192 → 128) + ReLU
-    → Linear(128 → 64)  + ReLU
-    → Linear(64 → 32)   + ReLU               # each patch → 32-d vector
-    → reshape + mean(dim=1) → (B, 32)        # mean-pool across 16 patches
-    → Linear(32 → 10)
+    → Linear(192 → 128) + BatchNorm1d(128) + ReLU
+    → Linear(128 → 64)  + BatchNorm1d(64)  + ReLU
+    → Linear(64 → 32)   + BatchNorm1d(32)  + ReLU   # each patch → 32-d vector
+    → reshape + mean(dim=1) → (B, 32)               # mean-pool across 16 patches
+    → Linear(32 → 64) + ReLU                         # deeper classifier head
+    → Linear(64 → 10)
 ```
 
 `patch_dim = 3 × 8 × 8 = 192`
+
+- **BatchNorm1d** operates on `(B*16, features)` — 16 patches per image gives even larger effective batch size, making BN stats very stable.
+- Classifier is now 2-layer (`32→64→10`) instead of a single linear.
 
 Also invariant to patch-16 because shuffling 16×16 regions just rearranges groups of 8×8 patches, and mean-pool is agnostic to order.
 
@@ -182,45 +194,58 @@ Input (B, 3, 32, 32)
 
 ### `Net_D_shuffletruffle_CNN` — [main.py:171](main.py#L171)
 
-Invariant to **16×16** patch shuffling. Each 16×16 patch is processed by the same small CNN with shared weights. Conv kernels never cross patch boundaries.
+Invariant to **16×16** patch shuffling. Each 16×16 patch is processed by the same **ResNet-style encoder** with shared weights. Conv kernels never cross patch boundaries.
 
 ```
 Input (B, 3, 32, 32)
     → extract_patches(16) → (B, 4, 3, 16, 16)
     → reshape             → (B*4, 3, 16, 16)   # 4 patches per image, all batched together
-    → Conv(3→32,  3×3) + BN + ReLU
-    → Conv(32→64, 3×3) + BN + ReLU
-    → Conv(64→128,3×3) + BN + ReLU
+    → stem: Conv(3→32, 3×3) + BN + ReLU        # 16×16
+    → ResBlock(32→32)                           # 16×16 — identity shortcut
+    → ResBlock(32→64,  stride=2)                # 16×16 → 8×8 — projection shortcut
+    → ResBlock(64→128, stride=2)                # 8×8   → 4×4 — projection shortcut
     → AdaptiveAvgPool(1,1) → flatten            → (B*4, 128)
     → reshape + mean(dim=1) → (B, 128)          # mean-pool across 4 patches
     → Linear(128 → 64) + ReLU
     → Linear(64 → 10)
 ```
 
-The `AdaptiveAvgPool(1,1)` collapses each patch's spatial dimensions to a single vector, after which mean-pooling across patches makes the result order-invariant.
+Using ResNet over plain conv gives skip connections — each block learns residuals rather than full transformations, enabling richer per-patch features and more stable gradient flow.
 
-Not invariant to patch-8 because the CNN processes the interior of each 16×16 patch with full spatial awareness — rearranging 8×8 blocks within a patch changes what the conv kernels see.
+Not invariant to patch-8 because ResBlocks process the interior of each 16×16 patch with full spatial awareness — rearranging 8×8 blocks within a patch changes what the kernels see.
 
 ---
 
-### `Net_N_shuffletruffle_CNN` — [main.py:202](main.py#L202)
+### `Net_N_shuffletruffle_CNN` — [main.py:215](main.py#L215)
 
-Invariant to **8×8** patch shuffling. Same design as D-CNN but with 8×8 patches (16 patches total) and a smaller encoder.
+Invariant to **8×8** patch shuffling. Same **ResNet-style** design as D-CNN but with 8×8 patches (16 patches total) and a scaled-down encoder.
 
 ```
 Input (B, 3, 32, 32)
     → extract_patches(8) → (B, 16, 3, 8, 8)
     → reshape            → (B*16, 3, 8, 8)
-    → Conv(3→16,  3×3) + BN + ReLU
-    → Conv(16→32, 3×3) + BN + ReLU
-    → Conv(32→64, 3×3) + BN + ReLU
-    → AdaptiveAvgPool(1,1) → flatten           → (B*16, 64)
-    → reshape + mean(dim=1) → (B, 64)          # mean-pool across 16 patches
+    → stem: Conv(3→16, 3×3) + BN + ReLU        # 8×8
+    → ResBlock(16→16)                           # 8×8 — identity shortcut
+    → ResBlock(16→32,  stride=2)                # 8×8 → 4×4 — projection shortcut
+    → ResBlock(32→64,  stride=2)                # 4×4 → 2×2 — projection shortcut
+    → AdaptiveAvgPool(1,1) → flatten            → (B*16, 64)
+    → reshape + mean(dim=1) → (B, 64)           # mean-pool across 16 patches
     → Linear(64 → 32) + ReLU
     → Linear(32 → 10)
 ```
 
-Smaller channels (16→32→64) because 8×8 patches contain less information than 16×16 patches.
+Smaller channels (16→32→64 vs 32→64→128) because 8×8 patches contain less spatial information than 16×16.
+
+Comparison with D-CNN encoder:
+
+| | D-shuffletruffle CNN | N-shuffletruffle CNN |
+|--|---------------------|---------------------|
+| Patch size | 16×16 | 8×8 |
+| stem | Conv(3→32) | Conv(3→16) |
+| layer1 | ResBlock(32→32) | ResBlock(16→16) |
+| layer2 | ResBlock(32→64, s=2) | ResBlock(16→32, s=2) |
+| layer3 | ResBlock(64→128, s=2) | ResBlock(32→64, s=2) |
+| output dim | 128 | 64 |
 
 ---
 
@@ -251,17 +276,22 @@ Input (B, 3, 32, 32)
     → extract_patches(4) → (B, 64, 3, 4, 4)
     → flatten patches    → (B, 64, 48)
     → Linear(48 → 128)   → (B, 64, 128)    # patch embedding
+    → LayerNorm          → (B, 64, 128)    # embed_norm: stabilizes token scale
     → prepend CLS token  → (B, 65, 128)
     → add pos_embed      → (B, 65, 128)    # ← encodes position
     → TransformerBlock × 4
     → LayerNorm
     → CLS token [0]      → (B, 128)
-    → Linear(128 → 10)
+    → Linear(128 → 256) + GELU + Dropout(0.1)
+    → Linear(256 → 10)
 ```
 
 Key components:
 - **`cls_token`**: a learnable token prepended to the sequence. After all transformer blocks, its representation aggregates information from all patches and is used for classification.
 - **`pos_embed`**: learnable positional embedding added to each token. Without it, the transformer would treat patches as an unordered set. This is what makes the plain model position-sensitive.
+- **`embed_norm`**: LayerNorm applied immediately after patch embedding — normalizes token magnitudes before positional embeddings are added, stabilizing early training.
+- **2-layer MLP head**: replaces a single linear layer — `Linear(128→256)→GELU→Dropout→Linear(256→10)` gives the classifier more expressive power.
+- **`trunc_normal_` init**: `patch_embed.weight`, `cls_token`, and `pos_embed` are all initialized from a truncated normal (std=0.02), following the original ViT paper for stable training.
 - **patch_size=4** → 64 patches, which gives the model fine spatial resolution.
 
 ---
@@ -275,18 +305,21 @@ Input (B, 3, 32, 32)
     → extract_patches(16) → (B, 4, 3, 16, 16)
     → flatten patches     → (B, 4, 768)
     → Linear(768 → 128)   → (B, 4, 128)    # patch embedding
+    → LayerNorm           → (B, 4, 128)    # embed_norm
     # NO pos_embed added
     → TransformerBlock × 4
     → LayerNorm
     → mean(dim=1)         → (B, 128)       # mean-pool tokens
-    → Linear(128 → 10)
+    → Linear(128 → 256) + GELU + Dropout(0.1)
+    → Linear(256 → 10)
 ```
 
-Two differences from `Net_Attention`:
+Three differences from `Net_Attention`:
 1. **No `pos_embed`** — attention treats all 4 tokens as an unordered set. Shuffling them produces the same attention weights (self-attention is permutation equivariant without positional info).
 2. **Mean-pool instead of CLS** — no CLS token needed; averaging all token outputs is equivalent and simpler.
+3. **`trunc_normal_` init on `patch_embed.weight`** (std=0.02) — same as the plain ViT for consistent initialization.
 
-Why these two together guarantee invariance: Without positional embeddings, `TransformerBlock` is permutation-equivariant — shuffling input tokens just shuffles output tokens in the same order. Mean-pool then destroys the order entirely.
+Why these together guarantee invariance: Without positional embeddings, `TransformerBlock` is permutation-equivariant — shuffling input tokens just shuffles output tokens in the same order. Mean-pool then destroys the order entirely.
 
 ---
 
@@ -299,12 +332,16 @@ Input (B, 3, 32, 32)
     → extract_patches(8) → (B, 16, 3, 8, 8)
     → flatten patches    → (B, 16, 192)
     → Linear(192 → 128)  → (B, 16, 128)   # patch embedding
+    → LayerNorm          → (B, 16, 128)   # embed_norm
     # NO pos_embed added
     → TransformerBlock × 4
     → LayerNorm
     → mean(dim=1)        → (B, 128)       # mean-pool 16 tokens
-    → Linear(128 → 10)
+    → Linear(128 → 256) + GELU + Dropout(0.1)
+    → Linear(256 → 10)
 ```
+
+`trunc_normal_` init on `patch_embed.weight` (std=0.02). Invariant to both 8×8 and 16×16 shuffling by the same mean-pool argument as D-Attention.
 
 ---
 
@@ -382,6 +419,36 @@ After training, the model is evaluated on:
 
 ---
 
+## Running on a SLURM Cluster
+
+Use `run_all.sh` to submit all 9 models as a job array — each model gets its own GPU job and runs in parallel.
+
+```bash
+mkdir -p slurm_logs
+sbatch run_all.sh
+```
+
+Key SLURM settings in `run_all.sh`:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `--account` | `pclamd` | cluster account |
+| `--partition` | `general` | check with `sinfo -s` |
+| `--gres` | `gpu:1` | 1 GPU per job |
+| `--mem` | `40G` | RAM per job |
+| `--time` | `24:00:00` | max wall time |
+| `--array` | `0-8` | 9 jobs, one per model |
+
+Monitor jobs:
+```bash
+squeue -u $USER          # running jobs
+sacct -j <JOBID>         # status after completion
+```
+
+Logs are written to `slurm_logs/{jobname}_{jobid}_{arrayid}.out`.
+
+---
+
 ## File Structure
 
 ```
@@ -389,11 +456,13 @@ After training, the model is evaluated on:
 ├── main.py              # all 9 models + training loop
 ├── dataset_class.py     # PatchShuffled_CIFAR10 dataset loader
 ├── create_data.py       # script that created the .npz test files
+├── run_all.sh           # SLURM job array script — runs all 9 models in parallel
 ├── test_patch_16.npz    # 10k test images with shuffled 16×16 patches
 ├── test_patch_8.npz     # 10k test images with shuffled 8×8 patches
-├── data/                # CIFAR10 raw data (downloaded automatically)
-├── logs/                # CSV logs (created at runtime)
+├── data/                # CIFAR10 raw data (downloaded automatically, gitignored)
+├── logs/                # CSV logs (created at runtime, gitignored)
 │   ├── {model_class}.csv
 │   └── test_summary.csv
+├── slurm_logs/          # SLURM stdout/stderr (created at runtime)
 └── code.md              # this file
 ```

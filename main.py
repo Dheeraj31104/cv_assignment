@@ -33,10 +33,15 @@ class Net_FC(nn.Module):
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
             nn.Linear(3 * 32 * 32, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256, 10),
+            nn.Linear(256, 128),          # deeper: added 3rd hidden layer
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Linear(128, 10),
         )
     def forward(self, x):
         x = self.flatten(x)
@@ -53,13 +58,20 @@ class Net_D_shuffletruffle_FC(nn.Module):
         patch_dim = 3 * self.PATCH_SIZE * self.PATCH_SIZE  # 768
         self.patch_fc = nn.Sequential(
             nn.Linear(patch_dim, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
             nn.ReLU(),
             nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(),
         )
-        self.classifier = nn.Linear(64, 10)
+        self.classifier = nn.Sequential(  # deeper: 2-layer classifier head
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 10),
+        )
 
     def forward(self, x):
         B = x.shape[0]
@@ -81,13 +93,20 @@ class Net_N_shuffletruffle_FC(nn.Module):
         patch_dim = 3 * self.PATCH_SIZE * self.PATCH_SIZE  # 192
         self.patch_fc = nn.Sequential(
             nn.Linear(patch_dim, 128),
+            nn.BatchNorm1d(128),
             nn.ReLU(),
             nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(),
             nn.Linear(64, 32),
+            nn.BatchNorm1d(32),
             nn.ReLU(),
         )
-        self.classifier = nn.Linear(32, 10)
+        self.classifier = nn.Sequential(  # deeper: 2-layer classifier head
+            nn.Linear(32, 64),
+            nn.ReLU(),
+            nn.Linear(64, 10),
+        )
 
     def forward(self, x):
         B = x.shape[0]
@@ -213,19 +232,31 @@ class Net_D_shuffletruffle_CNN(nn.Module):
 
 # Define the CNN model architecture for N-shuffletruffle
 class Net_N_shuffletruffle_CNN(nn.Module):
-    """Each 8x8 patch processed by the same small CNN (shared weights).
-    Conv kernels never cross patch boundaries. Mean-pool → shuffle invariant."""
+    """Each 8x8 patch processed by the same ResNet-style encoder (shared weights).
+    Conv kernels never cross patch boundaries. Mean-pool → shuffle invariant.
+
+    Patch encoder (applied independently to each 8x8 patch):
+        stem  : Conv(3→16)
+        layer1: ResBlock(16→16)            — stays 8x8
+        layer2: ResBlock(16→32, stride=2)  — 8x8 → 4x4
+        layer3: ResBlock(32→64, stride=2)  — 4x4 → 2x2
+        pool  : AdaptiveAvgPool → 64-d vector
+    """
     PATCH_SIZE = 8
 
     def __init__(self):
         super(Net_N_shuffletruffle_CNN, self).__init__()
-        self.patch_cnn = nn.Sequential(
+        self.patch_encoder = nn.Sequential(
+            # stem
             nn.Conv2d(3, 16, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(16), nn.ReLU(inplace=True),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(32), nn.ReLU(inplace=True),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(64), nn.ReLU(inplace=True),
+            # layer1 — no downsampling, identity shortcut
+            ResidualBlock(16, 16),
+            # layer2 — 8x8 → 4x4, projection shortcut
+            ResidualBlock(16, 32, stride=2),
+            # layer3 — 4x4 → 2x2, projection shortcut
+            ResidualBlock(32, 64, stride=2),
+            # collapse spatial dims
             nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.classifier = nn.Sequential(
@@ -238,7 +269,7 @@ class Net_N_shuffletruffle_CNN(nn.Module):
         patches = extract_patches(x, self.PATCH_SIZE)              # (B, 16, 3, 8, 8)
         n = patches.shape[1]
         patches = patches.reshape(B * n, 3, self.PATCH_SIZE, self.PATCH_SIZE)
-        feats = self.patch_cnn(patches).flatten(1)                 # (B*16, 64)
+        feats = self.patch_encoder(patches).flatten(1)             # (B*16, 64)
         feats = feats.reshape(B, n, 64).mean(dim=1)               # (B, 64) order-invariant
         return self.classifier(feats)
 
@@ -275,11 +306,17 @@ class Net_Attention(nn.Module):
         num_patches      = (32 // patch_size) ** 2      # 64
         patch_dim        = 3 * patch_size * patch_size  # 48
         self.patch_embed = nn.Linear(patch_dim, dim)
+        self.embed_norm  = nn.LayerNorm(dim)             # normalize token magnitudes after embed
         self.cls_token   = nn.Parameter(torch.zeros(1, 1, dim))
         self.pos_embed   = nn.Parameter(torch.zeros(1, num_patches + 1, dim))
         self.blocks      = nn.ModuleList([TransformerBlock(dim, num_heads) for _ in range(depth)])
         self.norm        = nn.LayerNorm(dim)
-        self.classifier  = nn.Linear(dim, 10)
+        self.classifier  = nn.Sequential(               # 2-layer MLP head
+            nn.Linear(dim, 256), nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, 10),
+        )
+        nn.init.trunc_normal_(self.patch_embed.weight, std=0.02)
         nn.init.trunc_normal_(self.cls_token, std=0.02)
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
@@ -287,14 +324,14 @@ class Net_Attention(nn.Module):
         B = x.shape[0]
         patches = extract_patches(x, self.patch_size)  # (B, 64, 3, 4, 4)
         patches = patches.flatten(2)                   # (B, 64, 48)
-        tokens  = self.patch_embed(patches)            # (B, 64, dim)
+        tokens  = self.embed_norm(self.patch_embed(patches))  # (B, 64, dim) + LN
         cls     = self.cls_token.expand(B, -1, -1)
         tokens  = torch.cat([cls, tokens], dim=1)      # (B, 65, dim)
         tokens  = tokens + self.pos_embed              # positional info → position-sensitive
         for block in self.blocks:
             tokens = block(tokens)
         tokens  = self.norm(tokens)
-        return self.classifier(tokens[:, 0])           # CLS token
+        return self.classifier(tokens[:, 0])           # CLS token → MLP head
 
 
 # Define the Attention model architecture for D-shuffletruffle
@@ -307,15 +344,21 @@ class Net_D_shuffletruffle_Attention(nn.Module):
         super(Net_D_shuffletruffle_Attention, self).__init__()
         patch_dim        = 3 * self.PATCH_SIZE * self.PATCH_SIZE  # 768
         self.patch_embed = nn.Linear(patch_dim, dim)
+        self.embed_norm  = nn.LayerNorm(dim)
         # NO pos_embed — this is the key difference
         self.blocks      = nn.ModuleList([TransformerBlock(dim, num_heads) for _ in range(depth)])
         self.norm        = nn.LayerNorm(dim)
-        self.classifier  = nn.Linear(dim, 10)
+        self.classifier  = nn.Sequential(
+            nn.Linear(dim, 256), nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, 10),
+        )
+        nn.init.trunc_normal_(self.patch_embed.weight, std=0.02)
 
     def forward(self, x):
         patches = extract_patches(x, self.PATCH_SIZE)  # (B, 4, 3, 16, 16)
         patches = patches.flatten(2)                   # (B, 4, 768)
-        tokens  = self.patch_embed(patches)            # (B, 4, dim)
+        tokens  = self.embed_norm(self.patch_embed(patches))  # (B, 4, dim) + LN
         for block in self.blocks:
             tokens = block(tokens)
         tokens  = self.norm(tokens)
@@ -332,15 +375,21 @@ class Net_N_shuffletruffle_Attention(nn.Module):
         super(Net_N_shuffletruffle_Attention, self).__init__()
         patch_dim        = 3 * self.PATCH_SIZE * self.PATCH_SIZE  # 192
         self.patch_embed = nn.Linear(patch_dim, dim)
+        self.embed_norm  = nn.LayerNorm(dim)
         # NO pos_embed — this is the key difference
         self.blocks      = nn.ModuleList([TransformerBlock(dim, num_heads) for _ in range(depth)])
         self.norm        = nn.LayerNorm(dim)
-        self.classifier  = nn.Linear(dim, 10)
+        self.classifier  = nn.Sequential(
+            nn.Linear(dim, 256), nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, 10),
+        )
+        nn.init.trunc_normal_(self.patch_embed.weight, std=0.02)
 
     def forward(self, x):
         patches = extract_patches(x, self.PATCH_SIZE)  # (B, 16, 3, 8, 8)
         patches = patches.flatten(2)                   # (B, 16, 192)
-        tokens  = self.patch_embed(patches)            # (B, 16, dim)
+        tokens  = self.embed_norm(self.patch_embed(patches))  # (B, 16, dim) + LN
         for block in self.blocks:
             tokens = block(tokens)
         tokens  = self.norm(tokens)
@@ -349,7 +398,6 @@ class Net_N_shuffletruffle_Attention(nn.Module):
 def eval_model(model, data_loader, criterion, device):
     # Evaluate the model on data from valloader
     correct = 0
-    total = 0
     val_loss = 0
     model.eval()
     with torch.no_grad():
