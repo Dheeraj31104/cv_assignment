@@ -122,11 +122,12 @@ class Net_N_shuffletruffle_FC(nn.Module):
 
 # Define the CNN model architecture for CIFAR10
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1):
+    def __init__(self, in_channels, out_channels, stride=1, dropout=0.1):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout2d(p=dropout)  # drops entire channels between the two convs
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
 
@@ -143,6 +144,7 @@ class ResidualBlock(nn.Module):
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
+        out = self.dropout(out)   # regularize between the two convs
 
         out = self.conv2(out)
         out = self.bn2(out)
@@ -175,7 +177,11 @@ class Net_CNN(nn.Module):
         )
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Linear(128, 10)
+        self.classifier = nn.Sequential(
+            nn.Linear(128, 256), nn.GELU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 10),
+        )
 
     def forward(self, x):
         x = self.stem(x)
@@ -217,7 +223,8 @@ class Net_D_shuffletruffle_CNN(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.classifier = nn.Sequential(
-            nn.Linear(128, 64), nn.ReLU(),
+            nn.Linear(128, 64), nn.GELU(),
+            nn.Dropout(0.3),
             nn.Linear(64, 10),
         )
 
@@ -260,7 +267,8 @@ class Net_N_shuffletruffle_CNN(nn.Module):
             nn.AdaptiveAvgPool2d((1, 1)),
         )
         self.classifier = nn.Sequential(
-            nn.Linear(64, 32), nn.ReLU(),
+            nn.Linear(64, 32), nn.GELU(),
+            nn.Dropout(0.3),
             nn.Linear(32, 10),
         )
 
@@ -427,15 +435,27 @@ def main(epochs = 100,
 
     # Load and preprocess the dataset, feel free to add other transformations that don't shuffle the patches.
     # (Note - augmentations are typically not performed on validation set)
-    transform = transforms.Compose([
-        transforms.ToTensor()])
 
+    # Per-channel mean and std computed from the CIFAR-10 training set.
+    # The same values are applied to val and test so the network sees consistently scaled inputs.
+    CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
+    CIFAR10_STD  = (0.2470, 0.2435, 0.2616)
+
+    train_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+    ])
+    # val/test use the same normalization — no augmentation, same stats from training
+    test_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+    ])
 
     # Initialize training, validation and test dataset
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
     trainset, valset = torch.utils.data.random_split(trainset, [40000, 10000], generator=torch.Generator().manual_seed(0))
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
 
     # Initialize Dataloaders
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
@@ -513,9 +533,6 @@ def main(epochs = 100,
 
     csv_file.close()
 
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
     net.eval()
     # Evaluate the model on the test set
     test_loss, test_acc = eval_model(net, testloader, criterion, device)
@@ -524,13 +541,13 @@ def main(epochs = 100,
     # Evaluate the model on the patch shuffled test data
 
     patch_size = 16
-    patch_shuffle_testset = PatchShuffled_CIFAR10(data_file_path = f'test_patch_{patch_size}.npz', transforms = transform)
+    patch_shuffle_testset = PatchShuffled_CIFAR10(data_file_path = f'test_patch_{patch_size}.npz', transforms = test_transform)
     patch_shuffle_testloader = torch.utils.data.DataLoader(patch_shuffle_testset, batch_size=batch_size, shuffle=False)
     patch_shuffle_test_loss_16, patch_shuffle_test_acc_16 = eval_model(net, patch_shuffle_testloader, criterion, device)
     print(f'Patch shuffle test loss for patch-size {patch_size}: {patch_shuffle_test_loss_16} accuracy: {patch_shuffle_test_acc_16}')
 
     patch_size = 8
-    patch_shuffle_testset = PatchShuffled_CIFAR10(data_file_path = f'test_patch_{patch_size}.npz', transforms = transform)
+    patch_shuffle_testset = PatchShuffled_CIFAR10(data_file_path = f'test_patch_{patch_size}.npz', transforms = test_transform)
     patch_shuffle_testloader = torch.utils.data.DataLoader(patch_shuffle_testset, batch_size=batch_size, shuffle=False)
     patch_shuffle_test_loss_8, patch_shuffle_test_acc_8 = eval_model(net, patch_shuffle_testloader, criterion, device)
     print(f'Patch shuffle test loss for patch-size {patch_size}: {patch_shuffle_test_loss_8} accuracy: {patch_shuffle_test_acc_8}')
