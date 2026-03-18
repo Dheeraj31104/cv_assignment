@@ -1,0 +1,5 @@
+/var/lib/slurm/slurmd/job15740/slurm_script: line 15: module: command not found
+
+CondaError: Run 'conda init' before 'conda activate'
+
+slurmstepd: error: *** JOB 15740 ON lair-g7 CANCELLED AT 2026-03-17T17:28:37 ***

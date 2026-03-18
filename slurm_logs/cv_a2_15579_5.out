@@ -1,0 +1,131 @@
+==============================
+Job ID     : 15579
+Array ID   : 5
+Model      : N-shuffletruffle-CNN
+Node       : lair-g2
+GPU        : NVIDIA L40S
+==============================
+Net_N_shuffletruffle_CNN(
+  (patch_cnn): Sequential(
+    (0): Conv2d(3, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU(inplace=True)
+    (3): Conv2d(16, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (4): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (5): ReLU(inplace=True)
+    (6): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (7): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (8): ReLU(inplace=True)
+    (9): AdaptiveAvgPool2d(output_size=(1, 1))
+  )
+  (classifier): Sequential(
+    (0): Linear(in_features=64, out_features=32, bias=True)
+    (1): ReLU()
+    (2): Linear(in_features=32, out_features=10, bias=True)
+  )
+)
+epoch - 0 loss: 1.783 accuracy: 32.135 val_loss: 1.847 val_acc: 33.530
+epoch - 1 loss: 1.559 accuracy: 42.065
+epoch - 2 loss: 1.437 accuracy: 46.995
+epoch - 3 loss: 1.346 accuracy: 51.045
+epoch - 4 loss: 1.289 accuracy: 53.160
+epoch - 5 loss: 1.244 accuracy: 54.873
+epoch - 6 loss: 1.210 accuracy: 56.102
+epoch - 7 loss: 1.182 accuracy: 57.240
+epoch - 8 loss: 1.158 accuracy: 58.235
+epoch - 9 loss: 1.134 accuracy: 59.050
+epoch - 10 loss: 1.119 accuracy: 59.862 val_loss: 1.815 val_acc: 42.270
+epoch - 11 loss: 1.094 accuracy: 60.733
+epoch - 12 loss: 1.082 accuracy: 61.480
+epoch - 13 loss: 1.067 accuracy: 61.980
+epoch - 14 loss: 1.051 accuracy: 62.458
+epoch - 15 loss: 1.038 accuracy: 62.737
+epoch - 16 loss: 1.022 accuracy: 63.388
+epoch - 17 loss: 1.011 accuracy: 63.835
+epoch - 18 loss: 0.999 accuracy: 64.355
+epoch - 19 loss: 1.001 accuracy: 64.195
+epoch - 20 loss: 0.984 accuracy: 65.030 val_loss: 1.078 val_acc: 62.030
+epoch - 21 loss: 0.974 accuracy: 65.267
+epoch - 22 loss: 0.959 accuracy: 65.922
+epoch - 23 loss: 0.954 accuracy: 65.940
+epoch - 24 loss: 0.941 accuracy: 66.543
+epoch - 25 loss: 0.942 accuracy: 66.522
+epoch - 26 loss: 0.927 accuracy: 66.922
+epoch - 27 loss: 0.916 accuracy: 67.510
+epoch - 28 loss: 0.917 accuracy: 67.252
+epoch - 29 loss: 0.908 accuracy: 67.710
+epoch - 30 loss: 0.897 accuracy: 68.172 val_loss: 1.180 val_acc: 59.380
+epoch - 31 loss: 0.893 accuracy: 68.040
+epoch - 32 loss: 0.879 accuracy: 68.870
+epoch - 33 loss: 0.875 accuracy: 68.953
+epoch - 34 loss: 0.870 accuracy: 69.185
+epoch - 35 loss: 0.867 accuracy: 69.037
+epoch - 36 loss: 0.864 accuracy: 69.290
+epoch - 37 loss: 0.854 accuracy: 69.567
+epoch - 38 loss: 0.850 accuracy: 69.733
+epoch - 39 loss: 0.851 accuracy: 69.720
+epoch - 40 loss: 0.833 accuracy: 70.392 val_loss: 1.017 val_acc: 64.240
+epoch - 41 loss: 0.832 accuracy: 70.558
+epoch - 42 loss: 0.837 accuracy: 70.160
+epoch - 43 loss: 0.827 accuracy: 70.680
+epoch - 44 loss: 0.829 accuracy: 70.660
+epoch - 45 loss: 0.814 accuracy: 70.882
+epoch - 46 loss: 0.819 accuracy: 70.735
+epoch - 47 loss: 0.807 accuracy: 71.172
+epoch - 48 loss: 0.810 accuracy: 71.358
+epoch - 49 loss: 0.797 accuracy: 71.707
+epoch - 50 loss: 0.796 accuracy: 71.890 val_loss: 1.183 val_acc: 60.280
+epoch - 51 loss: 0.789 accuracy: 71.935
+epoch - 52 loss: 0.791 accuracy: 71.832
+epoch - 53 loss: 0.784 accuracy: 72.022
+epoch - 54 loss: 0.781 accuracy: 72.222
+epoch - 55 loss: 0.772 accuracy: 72.472
+epoch - 56 loss: 0.768 accuracy: 72.543
+epoch - 57 loss: 0.770 accuracy: 72.545
+epoch - 58 loss: 0.757 accuracy: 73.015
+epoch - 59 loss: 0.754 accuracy: 73.142
+epoch - 60 loss: 0.758 accuracy: 73.108 val_loss: 1.409 val_acc: 55.480
+epoch - 61 loss: 0.757 accuracy: 73.017
+epoch - 62 loss: 0.750 accuracy: 73.222
+epoch - 63 loss: 0.741 accuracy: 73.442
+epoch - 64 loss: 0.736 accuracy: 73.942
+epoch - 65 loss: 0.731 accuracy: 74.020
+epoch - 66 loss: 0.737 accuracy: 73.862
+epoch - 67 loss: 0.722 accuracy: 74.338
+epoch - 68 loss: 0.722 accuracy: 74.170
+epoch - 69 loss: 0.728 accuracy: 74.153
+epoch - 70 loss: 0.714 accuracy: 74.457 val_loss: 0.993 val_acc: 66.300
+epoch - 71 loss: 0.719 accuracy: 74.590
+epoch - 72 loss: 0.708 accuracy: 74.630
+epoch - 73 loss: 0.701 accuracy: 75.103
+epoch - 74 loss: 0.700 accuracy: 74.900
+epoch - 75 loss: 0.699 accuracy: 74.978
+epoch - 76 loss: 0.693 accuracy: 75.125
+epoch - 77 loss: 0.690 accuracy: 75.580
+epoch - 78 loss: 0.691 accuracy: 75.530
+epoch - 79 loss: 0.688 accuracy: 75.353
+epoch - 80 loss: 0.674 accuracy: 75.810 val_loss: 1.057 val_acc: 64.130
+epoch - 81 loss: 0.681 accuracy: 75.948
+epoch - 82 loss: 0.668 accuracy: 76.162
+epoch - 83 loss: 0.673 accuracy: 75.940
+epoch - 84 loss: 0.667 accuracy: 76.355
+epoch - 85 loss: 0.673 accuracy: 76.108
+epoch - 86 loss: 0.670 accuracy: 76.028
+epoch - 87 loss: 0.661 accuracy: 76.442
+epoch - 88 loss: 0.651 accuracy: 76.688
+epoch - 89 loss: 0.653 accuracy: 76.703
+epoch - 90 loss: 0.653 accuracy: 76.730 val_loss: 1.101 val_acc: 64.600
+epoch - 91 loss: 0.649 accuracy: 76.795
+epoch - 92 loss: 0.646 accuracy: 77.045
+epoch - 93 loss: 0.643 accuracy: 77.120
+epoch - 94 loss: 0.646 accuracy: 76.853
+epoch - 95 loss: 0.635 accuracy: 77.483
+epoch - 96 loss: 0.634 accuracy: 77.498
+epoch - 97 loss: 0.627 accuracy: 77.800
+epoch - 98 loss: 0.630 accuracy: 77.310
+epoch - 99 loss: 0.618 accuracy: 78.032
+Finished training
+Test loss: 1.055 accuracy: 66.200
+Patch shuffle test loss for patch-size 16: 1.0551830386813683 accuracy: 66.2
+Patch shuffle test loss for patch-size 8: 1.055183023591585 accuracy: 66.2
+Done: N-shuffletruffle-CNN

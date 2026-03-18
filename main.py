@@ -12,6 +12,11 @@ from matplotlib import pyplot as plt
 import argparse
 import csv
 import os
+from torch.utils.data import Subset
+
+
+CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
+CIFAR10_STD  = (0.2470, 0.2435, 0.2616)
 
 
 # ===================== Shared Utility =====================
@@ -43,9 +48,11 @@ class Net_FC(nn.Module):
             nn.ReLU(),
             nn.Linear(128, 10),
         )
-    def forward(self, x):
+    def forward_features(self, x):
         x = self.flatten(x)
-        return self.fc(x)
+        return self.fc[:-1](x)
+    def forward(self, x):
+        return self.fc(self.flatten(x))
 
 # Define the FC model architecture for D-shuffletruffle
 class Net_D_shuffletruffle_FC(nn.Module):
@@ -81,6 +88,14 @@ class Net_D_shuffletruffle_FC(nn.Module):
         feats = self.patch_fc(patches)                        # (B*4, 64)
         feats = feats.reshape(B, n, 64).mean(dim=1)           # (B, 64) order-invariant
         return self.classifier(feats)
+    def forward_features(self, x):
+        B = x.shape[0]
+        patches = extract_patches(x, self.PATCH_SIZE)
+        n = patches.shape[1]
+        patches = patches.reshape(B * n, -1)
+        feats = self.patch_fc(patches)
+        feats = feats.reshape(B, n, 64).mean(dim=1)
+        return self.classifier[:-1](feats)
 
 # Define the FC model architecture for N-shuffletruffle
 class Net_N_shuffletruffle_FC(nn.Module):
@@ -116,6 +131,14 @@ class Net_N_shuffletruffle_FC(nn.Module):
         feats = self.patch_fc(patches)                        # (B*16, 32)
         feats = feats.reshape(B, n, 32).mean(dim=1)           # (B, 32) order-invariant
         return self.classifier(feats)
+    def forward_features(self, x):
+        B = x.shape[0]
+        patches = extract_patches(x, self.PATCH_SIZE)
+        n = patches.shape[1]
+        patches = patches.reshape(B * n, -1)
+        feats = self.patch_fc(patches)
+        feats = feats.reshape(B, n, 32).mean(dim=1)
+        return self.classifier[:-1](feats)
 
 
 # ===================== CNN Models =====================
@@ -191,6 +214,14 @@ class Net_CNN(nn.Module):
         x = self.pool(x)
         x = torch.flatten(x, 1)
         return self.classifier(x)
+    def forward_features(self, x):
+        x = self.stem(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.pool(x)
+        x = torch.flatten(x, 1)
+        return self.classifier[:-1](x)
 
 
 # Define the CNN model architecture for D-shuffletruffle
@@ -236,6 +267,14 @@ class Net_D_shuffletruffle_CNN(nn.Module):
         feats = self.patch_encoder(patches).flatten(1)             # (B*4, 128)
         feats = feats.reshape(B, n, 128).mean(dim=1)               # (B, 128) order-invariant
         return self.classifier(feats)
+    def forward_features(self, x):
+        B = x.shape[0]
+        patches = extract_patches(x, self.PATCH_SIZE)
+        n = patches.shape[1]
+        patches = patches.reshape(B * n, 3, self.PATCH_SIZE, self.PATCH_SIZE)
+        feats = self.patch_encoder(patches).flatten(1)
+        feats = feats.reshape(B, n, 128).mean(dim=1)
+        return self.classifier[:-1](feats)
 
 # Define the CNN model architecture for N-shuffletruffle
 class Net_N_shuffletruffle_CNN(nn.Module):
@@ -280,6 +319,14 @@ class Net_N_shuffletruffle_CNN(nn.Module):
         feats = self.patch_encoder(patches).flatten(1)             # (B*16, 64)
         feats = feats.reshape(B, n, 64).mean(dim=1)               # (B, 64) order-invariant
         return self.classifier(feats)
+    def forward_features(self, x):
+        B = x.shape[0]
+        patches = extract_patches(x, self.PATCH_SIZE)
+        n = patches.shape[1]
+        patches = patches.reshape(B * n, 3, self.PATCH_SIZE, self.PATCH_SIZE)
+        feats = self.patch_encoder(patches).flatten(1)
+        feats = feats.reshape(B, n, 64).mean(dim=1)
+        return self.classifier[:-1](feats)
 
 # ===================== Attention Models =====================
 
@@ -340,6 +387,18 @@ class Net_Attention(nn.Module):
             tokens = block(tokens)
         tokens  = self.norm(tokens)
         return self.classifier(tokens[:, 0])           # CLS token → MLP head
+    def forward_features(self, x):
+        B = x.shape[0]
+        patches = extract_patches(x, self.patch_size)
+        patches = patches.flatten(2)
+        tokens = self.embed_norm(self.patch_embed(patches))
+        cls = self.cls_token.expand(B, -1, -1)
+        tokens = torch.cat([cls, tokens], dim=1)
+        tokens = tokens + self.pos_embed
+        for block in self.blocks:
+            tokens = block(tokens)
+        tokens = self.norm(tokens)
+        return self.classifier[:-1](tokens[:, 0])
 
 
 # Define the Attention model architecture for D-shuffletruffle
@@ -371,6 +430,14 @@ class Net_D_shuffletruffle_Attention(nn.Module):
             tokens = block(tokens)
         tokens  = self.norm(tokens)
         return self.classifier(tokens.mean(dim=1))     # mean-pool → order-invariant
+    def forward_features(self, x):
+        patches = extract_patches(x, self.PATCH_SIZE)
+        patches = patches.flatten(2)
+        tokens = self.embed_norm(self.patch_embed(patches))
+        for block in self.blocks:
+            tokens = block(tokens)
+        tokens = self.norm(tokens)
+        return self.classifier[:-1](tokens.mean(dim=1))
 
 
 # Define the Attention model architecture for N-shuffletruffle
@@ -402,6 +469,38 @@ class Net_N_shuffletruffle_Attention(nn.Module):
             tokens = block(tokens)
         tokens  = self.norm(tokens)
         return self.classifier(tokens.mean(dim=1))     # mean-pool → order-invariant
+    def forward_features(self, x):
+        patches = extract_patches(x, self.PATCH_SIZE)
+        patches = patches.flatten(2)
+        tokens = self.embed_norm(self.patch_embed(patches))
+        for block in self.blocks:
+            tokens = block(tokens)
+        tokens = self.norm(tokens)
+        return self.classifier[:-1](tokens.mean(dim=1))
+
+
+def build_model(model_class, device):
+    if model_class == 'Plain-Old-CIFAR10-FC':
+        net = Net_FC()
+    elif model_class == 'D-shuffletruffle-FC':
+        net = Net_D_shuffletruffle_FC()
+    elif model_class == 'N-shuffletruffle-FC':
+        net = Net_N_shuffletruffle_FC()
+    elif model_class == 'Plain-Old-CIFAR10-CNN':
+        net = Net_CNN()
+    elif model_class == 'D-shuffletruffle-CNN':
+        net = Net_D_shuffletruffle_CNN()
+    elif model_class == 'N-shuffletruffle-CNN':
+        net = Net_N_shuffletruffle_CNN()
+    elif model_class == 'Plain-Old-CIFAR10-Attention':
+        net = Net_Attention()
+    elif model_class == 'D-shuffletruffle-Attention':
+        net = Net_D_shuffletruffle_Attention()
+    elif model_class == 'N-shuffletruffle-Attention':
+        net = Net_N_shuffletruffle_Attention()
+    else:
+        raise ValueError(f'Unknown model_class: {model_class}')
+    return net.to(device)
 
 def eval_model(model, data_loader, criterion, device):
     # Evaluate the model on data from valloader
@@ -436,24 +535,32 @@ def main(epochs = 100,
     # Load and preprocess the dataset, feel free to add other transformations that don't shuffle the patches.
     # (Note - augmentations are typically not performed on validation set)
 
-    # Per-channel mean and std computed from the CIFAR-10 training set.
-    # The same values are applied to val and test so the network sees consistently scaled inputs.
-    CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
-    CIFAR10_STD  = (0.2470, 0.2435, 0.2616)
-
     train_transform = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.RandomRotation(10),
         transforms.ToTensor(),
         transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
     ])
+
     # val/test use the same normalization — no augmentation, same stats from training
     test_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
     ])
 
-    # Initialize training, validation and test dataset
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
-    trainset, valset = torch.utils.data.random_split(trainset, [40000, 10000], generator=torch.Generator().manual_seed(0))
+    # Build train/val splits from the same underlying CIFAR-10 training data,
+    # but attach different transforms so validation stays clean and deterministic.
+    full_train_aug = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
+    full_train_eval = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=test_transform)
+    train_subset, val_subset = torch.utils.data.random_split(
+        full_train_aug,
+        [40000, 10000],
+        generator=torch.Generator().manual_seed(0)
+    )
+    trainset = train_subset
+    valset = Subset(full_train_eval, val_subset.indices)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
 
@@ -463,24 +570,7 @@ def main(epochs = 100,
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False)
 
     # Initialize the model, the loss function and optimizer
-    if model_class == 'Plain-Old-CIFAR10-FC':
-        net = Net_FC().to(device)
-    elif model_class == 'D-shuffletruffle-FC':
-        net = Net_D_shuffletruffle_FC().to(device)
-    elif model_class == 'N-shuffletruffle-FC':
-        net = Net_N_shuffletruffle_FC().to(device)
-    elif model_class == 'Plain-Old-CIFAR10-CNN':
-        net = Net_CNN().to(device)
-    elif model_class == 'D-shuffletruffle-CNN':
-        net = Net_D_shuffletruffle_CNN().to(device)
-    elif model_class == 'N-shuffletruffle-CNN':
-        net = Net_N_shuffletruffle_CNN().to(device)
-    elif model_class == 'Plain-Old-CIFAR10-Attention':
-        net = Net_Attention().to(device)
-    elif model_class == 'D-shuffletruffle-Attention':
-        net = Net_D_shuffletruffle_Attention().to(device)
-    elif model_class == 'N-shuffletruffle-Attention':
-        net = Net_N_shuffletruffle_Attention().to(device)
+    net = build_model(model_class, device)
 
     print(net) # print model architecture
     criterion = nn.CrossEntropyLoss()
@@ -488,10 +578,13 @@ def main(epochs = 100,
 
     # CSV logger — one row per epoch
     os.makedirs('./logs', exist_ok=True)
+    os.makedirs('./checkpoints', exist_ok=True)
     csv_path = f'./logs/{model_class}.csv'
+    checkpoint_path = f'./checkpoints/{model_class}.pt'
     csv_file = open(csv_path, 'w', newline='')
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc'])
+    best_val_acc = float('-inf')
 
     # Train the model
     try:
@@ -517,11 +610,19 @@ def main(epochs = 100,
             train_loss = running_loss / len(trainloader)
             train_acc  = 100 * correct / len(trainloader.dataset)
 
+            val_loss, val_acc = eval_model(net, valloader, criterion, device)
+            if val_acc >= best_val_acc:
+                best_val_acc = val_acc
+                torch.save({
+                    'model_class': model_class,
+                    'state_dict': net.state_dict(),
+                    'val_acc': val_acc,
+                    'epoch': epoch,
+                }, checkpoint_path)
+
             if epoch % 10 == 0:
-                val_loss, val_acc = eval_model(net, valloader, criterion, device)
                 print('epoch - %d loss: %.3f accuracy: %.3f val_loss: %.3f val_acc: %.3f' % (epoch, train_loss, train_acc, val_loss, val_acc))
             else:
-                val_loss, val_acc = float('nan'), float('nan')
                 print('epoch - %d loss: %.3f accuracy: %.3f' % (epoch, train_loss, train_acc))
 
             csv_writer.writerow([epoch, f'{train_loss:.4f}', f'{train_acc:.2f}', f'{val_loss:.4f}', f'{val_acc:.2f}'])
@@ -533,6 +634,8 @@ def main(epochs = 100,
 
     csv_file.close()
 
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    net.load_state_dict(checkpoint['state_dict'])
     net.eval()
     # Evaluate the model on the test set
     test_loss, test_acc = eval_model(net, testloader, criterion, device)

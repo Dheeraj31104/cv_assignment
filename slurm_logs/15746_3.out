@@ -1,0 +1,192 @@
+==============================
+Job ID     : 15746
+Array ID   : 3
+Model      : Plain-Old-CIFAR10-CNN
+Node       : lair-g7
+GPU        : NVIDIA L40S
+==============================
+Net_CNN(
+  (stem): Sequential(
+    (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (1): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU(inplace=True)
+  )
+  (layer1): Sequential(
+    (0): ResidualBlock(
+      (conv1): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Identity()
+    )
+    (1): ResidualBlock(
+      (conv1): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Identity()
+    )
+  )
+  (layer2): Sequential(
+    (0): ResidualBlock(
+      (conv1): Conv2d(32, 64, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Sequential(
+        (0): Conv2d(32, 64, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): ResidualBlock(
+      (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Identity()
+    )
+  )
+  (layer3): Sequential(
+    (0): ResidualBlock(
+      (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Sequential(
+        (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+        (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+    (1): ResidualBlock(
+      (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (relu): ReLU(inplace=True)
+      (dropout): Dropout2d(p=0.1, inplace=False)
+      (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+      (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (shortcut): Identity()
+    )
+  )
+  (pool): AdaptiveAvgPool2d(output_size=(1, 1))
+  (classifier): Sequential(
+    (0): Linear(in_features=128, out_features=256, bias=True)
+    (1): GELU(approximate='none')
+    (2): Dropout(p=0.3, inplace=False)
+    (3): Linear(in_features=256, out_features=10, bias=True)
+  )
+)
+epoch - 0 loss: 1.952 accuracy: 25.747 val_loss: 1.757 val_acc: 34.710
+epoch - 1 loss: 1.680 accuracy: 36.307
+epoch - 2 loss: 1.540 accuracy: 43.070
+epoch - 3 loss: 1.428 accuracy: 47.120
+epoch - 4 loss: 1.337 accuracy: 51.040
+epoch - 5 loss: 1.259 accuracy: 54.288
+epoch - 6 loss: 1.189 accuracy: 56.862
+epoch - 7 loss: 1.143 accuracy: 58.797
+epoch - 8 loss: 1.098 accuracy: 60.450
+epoch - 9 loss: 1.057 accuracy: 62.445
+epoch - 10 loss: 1.029 accuracy: 63.102 val_loss: 0.929 val_acc: 66.750
+epoch - 11 loss: 0.998 accuracy: 64.153
+epoch - 12 loss: 0.965 accuracy: 65.545
+epoch - 13 loss: 0.944 accuracy: 66.463
+epoch - 14 loss: 0.925 accuracy: 67.055
+epoch - 15 loss: 0.899 accuracy: 67.838
+epoch - 16 loss: 0.888 accuracy: 68.528
+epoch - 17 loss: 0.860 accuracy: 69.645
+epoch - 18 loss: 0.846 accuracy: 70.062
+epoch - 19 loss: 0.829 accuracy: 70.625
+epoch - 20 loss: 0.810 accuracy: 71.272 val_loss: 0.756 val_acc: 73.800
+epoch - 21 loss: 0.801 accuracy: 71.808
+epoch - 22 loss: 0.781 accuracy: 72.513
+epoch - 23 loss: 0.763 accuracy: 73.280
+epoch - 24 loss: 0.752 accuracy: 73.632
+epoch - 25 loss: 0.747 accuracy: 73.838
+epoch - 26 loss: 0.726 accuracy: 74.427
+epoch - 27 loss: 0.718 accuracy: 74.593
+epoch - 28 loss: 0.708 accuracy: 75.365
+epoch - 29 loss: 0.694 accuracy: 75.720
+epoch - 30 loss: 0.688 accuracy: 75.810 val_loss: 0.644 val_acc: 77.710
+epoch - 31 loss: 0.673 accuracy: 76.360
+epoch - 32 loss: 0.664 accuracy: 76.897
+epoch - 33 loss: 0.655 accuracy: 77.085
+epoch - 34 loss: 0.644 accuracy: 77.630
+epoch - 35 loss: 0.634 accuracy: 77.797
+epoch - 36 loss: 0.625 accuracy: 78.270
+epoch - 37 loss: 0.628 accuracy: 78.028
+epoch - 38 loss: 0.618 accuracy: 78.835
+epoch - 39 loss: 0.605 accuracy: 78.985
+epoch - 40 loss: 0.598 accuracy: 79.030 val_loss: 0.574 val_acc: 80.120
+epoch - 41 loss: 0.594 accuracy: 79.340
+epoch - 42 loss: 0.592 accuracy: 79.355
+epoch - 43 loss: 0.582 accuracy: 79.720
+epoch - 44 loss: 0.577 accuracy: 79.953
+epoch - 45 loss: 0.570 accuracy: 80.235
+epoch - 46 loss: 0.570 accuracy: 80.245
+epoch - 47 loss: 0.559 accuracy: 80.552
+epoch - 48 loss: 0.552 accuracy: 80.785
+epoch - 49 loss: 0.555 accuracy: 80.790
+epoch - 50 loss: 0.546 accuracy: 80.840 val_loss: 0.522 val_acc: 81.940
+epoch - 51 loss: 0.541 accuracy: 81.168
+epoch - 52 loss: 0.534 accuracy: 81.420
+epoch - 53 loss: 0.526 accuracy: 81.890
+epoch - 54 loss: 0.524 accuracy: 81.765
+epoch - 55 loss: 0.519 accuracy: 81.815
+epoch - 56 loss: 0.516 accuracy: 82.080
+epoch - 57 loss: 0.507 accuracy: 82.368
+epoch - 58 loss: 0.507 accuracy: 82.468
+epoch - 59 loss: 0.504 accuracy: 82.320
+epoch - 60 loss: 0.498 accuracy: 82.647 val_loss: 0.492 val_acc: 82.510
+epoch - 61 loss: 0.490 accuracy: 83.115
+epoch - 62 loss: 0.487 accuracy: 82.835
+epoch - 63 loss: 0.491 accuracy: 82.755
+epoch - 64 loss: 0.480 accuracy: 83.325
+epoch - 65 loss: 0.475 accuracy: 83.282
+epoch - 66 loss: 0.473 accuracy: 83.480
+epoch - 67 loss: 0.478 accuracy: 83.513
+epoch - 68 loss: 0.465 accuracy: 83.795
+epoch - 69 loss: 0.465 accuracy: 83.968
+epoch - 70 loss: 0.463 accuracy: 83.677 val_loss: 0.477 val_acc: 83.690
+epoch - 71 loss: 0.455 accuracy: 84.275
+epoch - 72 loss: 0.455 accuracy: 84.010
+epoch - 73 loss: 0.452 accuracy: 84.305
+epoch - 74 loss: 0.446 accuracy: 84.522
+epoch - 75 loss: 0.446 accuracy: 84.510
+epoch - 76 loss: 0.441 accuracy: 84.550
+epoch - 77 loss: 0.437 accuracy: 84.805
+epoch - 78 loss: 0.434 accuracy: 84.858
+epoch - 79 loss: 0.433 accuracy: 84.802
+epoch - 80 loss: 0.427 accuracy: 84.985 val_loss: 0.462 val_acc: 83.700
+epoch - 81 loss: 0.429 accuracy: 84.955
+epoch - 82 loss: 0.425 accuracy: 85.230
+epoch - 83 loss: 0.420 accuracy: 85.502
+epoch - 84 loss: 0.417 accuracy: 85.510
+epoch - 85 loss: 0.422 accuracy: 85.328
+epoch - 86 loss: 0.415 accuracy: 85.522
+epoch - 87 loss: 0.408 accuracy: 85.685
+epoch - 88 loss: 0.410 accuracy: 85.597
+epoch - 89 loss: 0.406 accuracy: 85.933
+epoch - 90 loss: 0.410 accuracy: 85.680 val_loss: 0.436 val_acc: 85.050
+epoch - 91 loss: 0.403 accuracy: 85.907
+epoch - 92 loss: 0.396 accuracy: 86.240
+epoch - 93 loss: 0.392 accuracy: 86.565
+epoch - 94 loss: 0.393 accuracy: 86.230
+epoch - 95 loss: 0.390 accuracy: 86.110
+epoch - 96 loss: 0.390 accuracy: 86.267
+epoch - 97 loss: 0.385 accuracy: 86.552
+epoch - 98 loss: 0.386 accuracy: 86.540
+epoch - 99 loss: 0.385 accuracy: 86.585
+Finished training
+Test loss: 0.383 accuracy: 87.320
+Patch shuffle test loss for patch-size 16: 1.308969834446907 accuracy: 60.2
+Patch shuffle test loss for patch-size 8: 2.7881596326828 accuracy: 33.57
+Done: Plain-Old-CIFAR10-CNN

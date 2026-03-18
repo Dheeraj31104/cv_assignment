@@ -2,7 +2,7 @@
 #SBATCH --job-name=cv_a2
 #SBATCH --account=pclamd
 #SBATCH --partition=general
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:L40S:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=40G
 #SBATCH --time=24:00:00
@@ -10,8 +10,8 @@
 #SBATCH --error=slurm_logs/%x_%j_%a.err
 #SBATCH --array=0-8
 
-# activate conda env
-source ~/.bashrc
+# activate conda env for non-interactive SLURM shells
+source /l/anaconda3-2024.02/etc/profile.d/conda.sh
 conda activate torch-env
 
 mkdir -p slurm_logs
@@ -45,7 +45,7 @@ python main.py \
     --model_class "$MODEL" \
     --epochs 100 \
     --batch_size 128 \
-    --learning_rate 0.01 \
+    --learning_rate 1e-4 \
     --l2_regularization 0.0
 
 echo "Done: $MODEL"

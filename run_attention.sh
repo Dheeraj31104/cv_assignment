@@ -2,7 +2,7 @@
 #SBATCH --job-name=cv_a2_attn
 #SBATCH --account=pclamd
 #SBATCH --partition=general
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:L40S:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=40G
 #SBATCH --time=24:00:00
@@ -10,8 +10,8 @@
 #SBATCH --error=slurm_logs/%x_%j_%a.err
 #SBATCH --array=0-2
 
-# activate conda env
-source ~/.bashrc
+# activate conda env for non-interactive SLURM shells
+source /l/anaconda3-2024.02/etc/profile.d/conda.sh
 conda activate torch-env
 
 mkdir -p slurm_logs
