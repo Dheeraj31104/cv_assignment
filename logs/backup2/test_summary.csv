@@ -1,0 +1,10 @@
+model,test_loss,test_acc,patch16_loss,patch16_acc,patch8_loss,patch8_acc
+N-shuffletruffle-FC,2.2092,19.29,2.2092,19.29,2.2092,19.29
+D-shuffletruffle-FC,2.1833,24.38,2.1833,24.38,2.2011,21.63
+Plain-Old-CIFAR10-FC,1.6889,42.78,2.0143,26.99,2.1102,21.98
+Plain-Old-CIFAR10-CNN,1.2164,55.10,1.5254,42.80,2.0609,28.43
+D-shuffletruffle-CNN,1.6886,33.10,1.6886,33.10,1.7772,29.98
+N-shuffletruffle-CNN,2.2238,21.27,2.2238,21.27,2.2238,21.27
+D-shuffletruffle-Attention,2.0970,21.26,2.0970,21.26,2.1117,18.19
+Plain-Old-CIFAR10-Attention,2.0025,27.17,2.0025,27.16,2.0025,27.16
+N-shuffletruffle-Attention,2.0967,21.67,2.0967,21.67,2.0967,21.67

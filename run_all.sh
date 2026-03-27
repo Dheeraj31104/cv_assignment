@@ -41,11 +41,18 @@ echo "=============================="
 
 cd $SLURM_SUBMIT_DIR
 
+# Use lower LR for Attention models
+if [[ "$MODEL" == *"Attention"* ]]; then
+    LR=1e-4
+else
+    LR=0.01
+fi
+
 python main.py \
     --model_class "$MODEL" \
     --epochs 100 \
     --batch_size 128 \
-    --learning_rate 1e-4 \
+    --learning_rate $LR \
     --l2_regularization 0.0
 
 echo "Done: $MODEL"
