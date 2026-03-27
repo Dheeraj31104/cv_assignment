@@ -5,7 +5,7 @@
 ### Run 1 — Regression Run (backup2/ — Job 16611)
 **Config:** LR=1e-4, L2=0.2, data augmentation added (RandomCrop, RandomHorizontalFlip, ColorJitter, RandomRotation), val eval every epoch, best checkpoint saving
 
-**Changes from Run 1:**
+**Changes introduced:**
 - LR dropped 100× (0.01 → 1e-4) — models failed to converge in 100 epochs
 - L2 regularization introduced (0.2) — over-regularized
 - Data augmentation added — harder training, needs more epochs/higher LR to compensate
@@ -52,16 +52,28 @@
 
 ---
 
-### Run 3 — Per-Architecture LR (current run — Job pending)
+### Run 3 — Per-Architecture LR (Final)
 **Config:** LR=0.01 for FC/CNN, LR=1e-4 for Attention, L2=0.0, data augmentation kept, best checkpoint saving
 
 **Changes from Run 2:**
 - Attention models get LR=1e-4
 - FC/CNN keep LR=0.01 (confirmed best in Run 2)
 
-**Expected result:** Best of both worlds — strong FC/CNN from Run 2 + strong Attention numbers
+**Result: Best of both worlds — strong FC/CNN + Attention fully recovered**
 
-Results pending.
+| Model | Test Acc | Patch-16 | Patch-8 | Notes |
+|---|---:|---:|---:|---|
+| Plain-Old-CIFAR10-FC | 60.81% | 28.00% | 21.34% | Consistent with Run 2 |
+| D-shuffletruffle-FC | 52.86% | 52.86% | 29.01% | Consistent with Run 2 |
+| N-shuffletruffle-FC | 54.13% | 54.13% | 54.13% | Consistent with Run 2 |
+| Plain-Old-CIFAR10-CNN | **90.03%** | 62.18% | 35.52% | Best CNN across all runs |
+| D-shuffletruffle-CNN | 82.46% | 82.46% | 55.80% | Strong shuffle robustness |
+| N-shuffletruffle-CNN | 67.39% | 67.39% | 67.39% | Fully invariant |
+| Plain-Old-CIFAR10-Attention | **76.55%** | 55.41% | 55.49% | Fully recovered with correct LR |
+| D-shuffletruffle-Attention | 54.92% | 54.92% | 27.86% | Recovered vs Run 2 |
+| N-shuffletruffle-Attention | **63.95%** | 63.95% | 63.95% | Best Attention shuffle model |
+
+**Key result:** Per-architecture LR confirmed as the right approach. CNN peaked at 90.03%, Attention recovered from ~27% to 76.55% on clean data.
 
 ---
 
@@ -73,5 +85,5 @@ Results pending.
 | L2 0.0 → 0.2 | Run 1 | Over-regularized, hurt all models |
 | Data augmentation added | Run 1 | Good idea but needs correct LR; masked by LR/L2 issues |
 | LR 1e-4 → 0.01, L2 removed | Run 1→2 | FC/CNN fully recovered and improved; Attention still wrong |
-| Per-model LR (Attention=1e-4) | Run 2→3 | Expected to fix Attention while keeping FC/CNN gains |
+| Per-model LR (Attention=1e-4) | Run 2→3 | Attention fully recovered; FC/CNN gains maintained |
 | Val eval every epoch + best checkpoint | Run 1 onward | Positive — saves best model, not final model |
