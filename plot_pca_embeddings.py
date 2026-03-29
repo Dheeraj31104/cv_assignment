@@ -34,9 +34,9 @@ MODEL_CLASSES = [
 ]
 
 VARIANT_STYLES = {
-    'original':  {'color': '#1f77b4', 'marker': 'o'},
-    'patch16':   {'color': '#ff7f0e', 'marker': '^'},
-    'patch8':    {'color': '#2ca02c', 'marker': 's'},
+    'original':  {'color': '#1f77b4', 'marker': 'o', 'facecolor': 'none', 'linewidth': 1.5},
+    'patch16':   {'color': '#e6194b', 'marker': '^', 'facecolor': 'none', 'linewidth': 1.5},
+    'patch8':    {'color': '#2ca02c', 'marker': 's', 'facecolor': 'none', 'linewidth': 1.5},
 }
 
 
@@ -145,10 +145,12 @@ def plot_model_embeddings(model_name, projected, sample_ids, variants):
         ax.scatter(
             coords[:, 0],
             coords[:, 1],
-            c=style['color'],
+            facecolors=style['facecolor'],
+            edgecolors=style['color'],
+            linewidths=style['linewidth'],
             marker=style['marker'],
-            s=55,
-            alpha=0.8,
+            s=70,
+            alpha=0.9,
             label=variant_name,
         )
         for x, y, sample_id in zip(coords[:, 0], coords[:, 1], ids):
